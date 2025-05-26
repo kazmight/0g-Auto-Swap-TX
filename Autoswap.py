@@ -4,7 +4,7 @@ import asyncio
 import random
 import time
 from web3 import Web3
-# from web3connect import connect # Asumsi web3connect.py ada dan berfungsi
+# from web3connect import connect # Asumsi web3connect.py ada dan berfungsi, jika tidak ada biarkan dikomentari
 from eth_account import Account
 from colorama import init, Fore, Style
 from eth_abi import abi
@@ -29,7 +29,7 @@ by Kazmight
 # Konstanta
 NETWORK_URL = "https://evmrpc-testnet.0g.ai"
 CHAIN_ID = 16601
-EXPLORER_URL = "https://chainscan-galileo.0g.ai/"
+EXPLORER_URL = "https://chainscan-galileo.0g.ai/tx/0x"
 ROUTER_ADDRESS = "0xb95B5953FF8ee5D5d9818CdbEfE363ff2191318c"
 
 # Konfigurasi Token
@@ -286,9 +286,9 @@ async def swap_tokens(w3: Web3, private_key: str, token_in: str, token_out: str,
             print(f"{Fore.RED}    ✖ {LANG[language]['no_balance']} (Perlu: {required_balance:.6f} A0GI, Punya: {balance:.6f} A0GI){Style.RESET_ALL}")
             return False
 
-        # Fungsi untuk mengeksekusi transaksi dengan penanganan nonce
+        # Fungsi untuk mengeksekusi transaksi dengan penanganan nonce dan rate limit
         async def execute_transaction_with_nonce_handling(nonce=None):
-            max_retries = 3
+            max_retries = 5 # Meningkatkan retry attempts
             retry_count = 0
             
             while retry_count < max_retries:
@@ -316,53 +316,68 @@ async def swap_tokens(w3: Web3, private_key: str, token_in: str, token_out: str,
                 
                 except Exception as e:
                     error_str = str(e)
+                    # Nonce handling
                     if "invalid nonce" in error_str.lower():
-                        # Ekstrak nonce yang diharapkan dari pesan error
                         try:
-                            # Parse pesan error untuk mendapatkan nonce yang diharapkan
-                            # Format: 'invalid nonce; got X, expected Y, ...'
                             expected_nonce_str = error_str.split('expected ')[1].split(',')[0]
                             expected_nonce = int(expected_nonce_str)
                             print(f"{Fore.YELLOW}    ⚠ Nonce tidak valid. Mencoba lagi dengan nonce: {expected_nonce}{Style.RESET_ALL}")
                             nonce = expected_nonce
                             retry_count += 1
+                            await asyncio.sleep(2) # Tambahkan jeda untuk nonce error
                         except:
-                            # Jika tidak dapat mem-parse nonce yang diharapkan, dapatkan yang baru dari jaringan
                             print(f"{Fore.YELLOW}    ⚠ Nonce tidak valid. Mendapatkan nonce baru dari jaringan...{Style.RESET_ALL}")
-                            await asyncio.sleep(2)  # Tunggu sebentar sebelum mendapatkan nonce baru
+                            await asyncio.sleep(2)
                             nonce = w3.eth.get_transaction_count(account.address)
                             retry_count += 1
+                    # Rate limit handling
+                    elif "rate exceeded" in error_str.lower() or "too many requests" in error_str.lower():
+                        wait_time = 2 ** retry_count + random.uniform(1, 3) # Exponential backoff with jitter
+                        print(f"{Fore.YELLOW}    ⚠ Rate limit exceeded. Menunggu {wait_time:.2f} detik sebelum mencoba lagi...{Style.RESET_ALL}")
+                        await asyncio.sleep(wait_time)
+                        retry_count += 1
+                        nonce = w3.eth.get_transaction_count(account.address) # Get fresh nonce after waiting
                     else:
-                        # Error lain yang tidak terkait dengan nonce
                         print(f"{Fore.RED}    ✖ Swap gagal: {str(e)}{Style.RESET_ALL}")
                         return False, None, None, None
             
-            # Jika sudah mencoba beberapa kali dan gagal
             print(f"{Fore.RED}    ✖ Swap gagal setelah {max_retries} kali percobaan{Style.RESET_ALL}")
             return False, None, None, None
 
-        # Eksekusi transaksi dengan penanganan nonce
+        # Eksekusi transaksi dengan penanganan nonce dan rate limit
         success, receipt, tx_hash, tx_link = await execute_transaction_with_nonce_handling()
         
         if success and receipt.status == 1:
-            # Dapatkan saldo token setelah swap untuk menghitung jumlah yang diterima
             try:
-                # Coba ekstrak amountOut dari log, tapi tangani log yang hilang dengan baik
-                amount_out = 0
-                if receipt.logs and len(receipt.logs) > 0:
-                    try:
-                        # Find the log for the `Swap` event from the router, or a Transfer event for the tokenOut
-                        # This part might need more robust parsing depending on the exact event structure
-                        # For simplicity, we'll try to decode the last 32 bytes of the first log as amountOut
-                        # A more robust solution would involve parsing specific event topics
-                        amount_out_data = receipt.logs[0].data[-32:]  # Assuming amountOut is the last parameter in the log data
-                        amount_out = int.from_bytes(amount_out_data, 'big')
-                    except (IndexError, Exception) as e:
-                        print(f"{Fore.YELLOW}    ⚠ Tidak dapat mengambil jumlah token keluar dari log: {str(e)}{Style.RESET_ALL}")
-                else:
-                    print(f"{Fore.YELLOW}    ⚠ Transaksi berhasil tetapi tidak ada log untuk mengambil jumlah token keluar{Style.RESET_ALL}")
+                amount_out = 0 # Default jika tidak ditemukan
+                # Anda bisa meningkatkan parsing log di sini jika diperlukan
+                # For simplicity, we'll assume the router's exactInputSingle returns amountOut directly
+                # Or you could check for a Transfer event from tokenOut to account.address
+                # Decoding logs can be complex, for testnet a basic approach might suffice.
+                # Example: Check for a Transfer event of token_out_address to account.address
+                if receipt.logs:
+                    token_out_contract = w3.eth.contract(address=Web3.to_checksum_address(token_out), abi=ERC20_ABI)
+                    transfer_event_signature = w3.keccak(text="Transfer(address,address,uint256)").hex()
+
+                    for log in receipt.logs:
+                        if log.address == Web3.to_checksum_address(token_out) and \
+                           transfer_event_signature in [topic.hex() for topic in log.topics]:
+                            # Logika untuk mendecode log Transfer (from, to, value)
+                            # Biasanya topic[1] adalah from, topic[2] adalah to, dan data adalah value
+                            try:
+                                # Example of decoding for a simple Transfer event (needs eth_abi)
+                                decoded_event = w3.codec.decode(['uint256'], log.data)
+                                if decoded_event:
+                                    amount_out = decoded_event[0]
+                                    break # Found it, exit loop
+                            except Exception as decode_e:
+                                print(f"{Fore.YELLOW}    ⚠ Gagal mendecode log Transfer: {decode_e}{Style.RESET_ALL}")
+                                amount_out = 0 # Reset if decode fails
                 
-                # Dapatkan saldo setelah swap
+                if amount_out == 0:
+                    print(f"{Fore.YELLOW}    ⚠ Tidak dapat mengambil jumlah token keluar secara pasti dari log. Mungkin log tidak standar atau tidak ditemukan.{Style.RESET_ALL}")
+
+
                 token_in_balance = w3.eth.contract(address=Web3.to_checksum_address(token_in), abi=ERC20_ABI).functions.balanceOf(account.address).call() / 10**TOKENS[token_in_symbol]["decimals"]
                 token_out_balance = w3.eth.contract(address=Web3.to_checksum_address(token_out), abi=ERC20_ABI).functions.balanceOf(account.address).call() / 10**TOKENS[token_out_symbol]["decimals"]
                 
@@ -378,8 +393,7 @@ async def swap_tokens(w3: Web3, private_key: str, token_in: str, token_out: str,
                 print(f"{Fore.YELLOW}      - Tx: {tx_link}{Style.RESET_ALL}")
                 return True
             except Exception as e:
-                # Jika tidak bisa mendapatkan jumlah output, tetap laporkan berhasil tapi sebutkan errornya
-                print(f"{Fore.GREEN}    ✔ {LANG[language]['success']} (Tidak dapat mengambil detail: {str(e)}){Style.RESET_ALL}")
+                print(f"{Fore.GREEN}    ✔ {LANG[language]['success']} (Tidak dapat mengambil detail lengkap: {str(e)}){Style.RESET_ALL}")
                 print(f"{Fore.YELLOW}      - Tx: {tx_link}{Style.RESET_ALL}")
                 return True
         else:
@@ -419,9 +433,9 @@ async def approve_token(w3: Web3, private_key: str, token_address: str, spender:
             print(f"{Fore.YELLOW}    - Tidak dapat mengestimasi gas untuk approve: {str(e)}. Menggunakan gas default: 100000{Style.RESET_ALL}")
             gas_limit = 100000
 
-        # Fungsi untuk mengeksekusi approve dengan penanganan nonce
+        # Fungsi untuk mengeksekusi approve dengan penanganan nonce dan rate limit
         async def execute_approve_with_nonce_handling(nonce=None):
-            max_retries = 3
+            max_retries = 5 # Meningkatkan retry attempts
             retry_count = 0
             
             while retry_count < max_retries:
@@ -448,19 +462,27 @@ async def approve_token(w3: Web3, private_key: str, token_address: str, spender:
                 
                 except Exception as e:
                     error_str = str(e)
+                    # Nonce handling
                     if "invalid nonce" in error_str.lower():
-                        # Ekstrak nonce yang diharapkan dari pesan error
                         try:
                             expected_nonce_str = error_str.split('expected ')[1].split(',')[0]
                             expected_nonce = int(expected_nonce_str)
                             print(f"{Fore.YELLOW}    ⚠ Nonce tidak valid. Mencoba lagi dengan nonce: {expected_nonce}{Style.RESET_ALL}")
                             nonce = expected_nonce
                             retry_count += 1
+                            await asyncio.sleep(2) # Tambahkan jeda untuk nonce error
                         except:
                             print(f"{Fore.YELLOW}    ⚠ Nonce tidak valid. Mendapatkan nonce baru dari jaringan...{Style.RESET_ALL}")
                             await asyncio.sleep(2)
                             nonce = w3.eth.get_transaction_count(account.address)
                             retry_count += 1
+                    # Rate limit handling
+                    elif "rate exceeded" in error_str.lower() or "too many requests" in error_str.lower():
+                        wait_time = 2 ** retry_count + random.uniform(1, 3) # Exponential backoff with jitter
+                        print(f"{Fore.YELLOW}    ⚠ Rate limit exceeded. Menunggu {wait_time:.2f} detik sebelum mencoba lagi...{Style.RESET_ALL}")
+                        await asyncio.sleep(wait_time)
+                        retry_count += 1
+                        nonce = w3.eth.get_transaction_count(account.address) # Get fresh nonce after waiting
                     else:
                         print(f"{Fore.RED}    ✖ Approve gagal: {str(e)}{Style.RESET_ALL}")
                         return False, None, None
@@ -468,7 +490,7 @@ async def approve_token(w3: Web3, private_key: str, token_address: str, spender:
             print(f"{Fore.RED}    ✖ Approve gagal setelah {max_retries} kali percobaan{Style.RESET_ALL}")
             return False, None, None
 
-        # Eksekusi transaksi dengan penanganan nonce
+        # Eksekusi transaksi dengan penanganan nonce dan rate limit
         success, receipt, tx_hash = await execute_approve_with_nonce_handling()
         
         if success and receipt.status == 1:
@@ -570,7 +592,7 @@ async def random_swap(w3: Web3, private_key: str, swap_count: int, percent: floa
             successful_swaps += 1
         
         if swap_num < swap_count - 1:
-            delay = random.uniform(10, 30)
+            delay = random.uniform(20, 30) # Default delay, bisa disesuaikan
             print(f"{Fore.YELLOW}    ℹ {LANG[language]['pausing']} {delay:.2f} {LANG[language]['seconds']}{Style.RESET_ALL}")
             await asyncio.sleep(delay)
         print_separator()
@@ -702,7 +724,8 @@ async def run_swaptoken(language: str = 'id'):
 
     for i, (profile_num, private_key) in enumerate(private_keys, 1):
         print_border(f"{LANG[language]['processing_wallet']} {profile_num} ({i}/{len(private_keys)})", Fore.MAGENTA)
-        # conn = connect(private_key) # Asumsi fungsi connect() ada dan tidak memerlukan w3 sebagai argumen
+        # Jika Anda memiliki web3connect.py, uncomment baris ini:
+        # conn = connect(private_key) 
         print()
         
         if choice == '1':
@@ -712,7 +735,13 @@ async def run_swaptoken(language: str = 'id'):
             print_border(LANG[language]['start_manual'], Fore.CYAN)
             # Teruskan pasangan yang dipilih dan persentase ke fungsi
             successful_swaps += await manual_swap(w3, private_key, i, language, pair_choice, percent)
-        print()
+        
+        # Jeda antar dompet untuk menghindari rate limit jika ada banyak dompet
+        if i < len(private_keys):
+            inter_wallet_delay = random.uniform(20, 60) # Sesuaikan rentang ini sesuai kebutuhan
+            print(f"{Fore.YELLOW}    ℹ Menjeda {inter_wallet_delay:.2f} detik sebelum memproses dompet berikutnya...{Style.RESET_ALL}")
+            await asyncio.sleep(inter_wallet_delay)
+        print() # Newline for separation
 
     print_border(LANG[language]['completed'].format(successful=successful_swaps, total=total_swaps), Fore.GREEN)
     print()
