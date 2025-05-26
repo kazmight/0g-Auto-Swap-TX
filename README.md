@@ -1,4 +1,4 @@
-# 0G Labs Testnet Automation Scripts
+# 0G Labs Testnet Automation Swap Scripts
 
 This repository contains a collection of Python scripts designed to automate various tasks on the 0G Labs Testnet token swapping,  These scripts are integrated with a central `autoswap.py` file for streamlined execution, supporting multiple private keys and a user-friendly CLI interface.
 
