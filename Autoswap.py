@@ -478,7 +478,7 @@ async def approve_token(w3: Web3, private_key: str, token_address: str, spender:
                             retry_count += 1
                     # Rate limit handling
                     elif "rate exceeded" in error_str.lower() or "too many requests" in error_str.lower():
-                        wait_time = 2 ** retry_count + random.uniform(1, 3) # Exponential backoff with jitter
+                        wait_time = 5 ** retry_count + random.uniform(3, 5) # Exponential backoff with jitter
                         print(f"{Fore.YELLOW}    ⚠ Rate limit exceeded. Menunggu {wait_time:.2f} detik sebelum mencoba lagi...{Style.RESET_ALL}")
                         await asyncio.sleep(wait_time)
                         retry_count += 1
@@ -592,7 +592,7 @@ async def random_swap(w3: Web3, private_key: str, swap_count: int, percent: floa
             successful_swaps += 1
         
         if swap_num < swap_count - 1:
-            delay = random.uniform(20, 30) # Default delay, bisa disesuaikan
+            delay = random.uniform(10, 30) # Default delay, bisa disesuaikan
             print(f"{Fore.YELLOW}    ℹ {LANG[language]['pausing']} {delay:.2f} {LANG[language]['seconds']}{Style.RESET_ALL}")
             await asyncio.sleep(delay)
         print_separator()
