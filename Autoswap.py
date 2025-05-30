@@ -430,8 +430,8 @@ async def approve_token(w3: Web3, private_key: str, token_address: str, spender:
             })
             gas_limit = int(estimated_gas * 1.2)
         except Exception as e:
-            print(f"{Fore.YELLOW}    - Tidak dapat mengestimasi gas untuk approve: {str(e)}. Menggunakan gas default: 100000{Style.RESET_ALL}")
-            gas_limit = 100000
+            print(f"{Fore.YELLOW}    - Tidak dapat mengestimasi gas untuk approve: {str(e)}. Menggunakan gas default: 21000{Style.RESET_ALL}")
+            gas_limit = 21000
 
         # Fungsi untuk mengeksekusi approve dengan penanganan nonce dan rate limit
         async def execute_approve_with_nonce_handling(nonce=None):
