@@ -4,10 +4,9 @@ import asyncio
 import random
 import time
 from web3 import Web3
-# from web3connect import connect # Asumsi web3connect.py ada dan berfungsi, jika tidak ada biarkan dikomentari
 from eth_account import Account
 from colorama import init, Fore, Style
-from eth_abi import abi
+from eth_abi import abi # Pastikan Anda memiliki eth_abi terinstal (pip install eth-abi)
 
 # Inisialisasi colorama
 init(autoreset=True)
@@ -30,7 +29,7 @@ by Kazmight
 NETWORK_URL = "https://evmrpc-testnet.0g.ai"
 CHAIN_ID = 16601
 EXPLORER_URL = "https://chainscan-galileo.0g.ai/tx/0x"
-ROUTER_ADDRESS = "0xb95B5953FF8ee5D5d9818CdbEfE363ff2191318c"
+ROUTER_ADDRESS = "0xb95B5953FF8ee5D5d9818CdbEfE363ff2191318c" # Periksa apakah alamat ini masih valid di 0G.ai
 
 # Konfigurasi Token
 TOKENS = {
@@ -266,18 +265,22 @@ async def swap_tokens(w3: Web3, private_key: str, token_in: str, token_out: str,
 
         # Dapatkan parameter transaksi
         nonce = w3.eth.get_transaction_count(account.address)
-        gas_price = w3.to_wei('70', 'gwei')  # Harga gas tetap
+        
+        # --- PERUBAHAN UTAMA: HARGA GAS DINAMIS ---
+        gas_price = w3.eth.gas_price # Dapatkan harga gas saat ini dari jaringan
+        print(f"{Fore.YELLOW}    - Harga Gas yang digunakan: {w3.from_wei(gas_price, 'gwei'):.2f} Gwei{Style.RESET_ALL}")
+        # --- AKHIR PERUBAHAN ---
         
         try:
             estimated_gas = router_contract.functions.exactInputSingle(swap_params).estimate_gas({
                 'from': account.address,
                 'value': 0
             })
-            gas_limit = int(estimated_gas * 1.2)
+            gas_limit = int(estimated_gas * 1.15) # Mengurangi buffer menjadi 15%
             print(f"{Fore.YELLOW}    - Estimasi Gas: {estimated_gas} | Batas Gas yang digunakan: {gas_limit}{Style.RESET_ALL}")
         except Exception as e:
-            print(f"{Fore.YELLOW}    - Tidak dapat mengestimasi gas: {str(e)}. Menggunakan gas default: 500000{Style.RESET_ALL}")
-            gas_limit = 500000  # Batas gas default yang lebih tinggi
+            print(f"{Fore.YELLOW}    - Tidak dapat mengestimasi gas: {str(e)}. Menggunakan gas default: 300000 (disesuaikan){Style.RESET_ALL}")
+            gas_limit = 300000 # Default yang lebih masuk akal untuk swap jika estimasi gagal
 
         # Periksa apakah pengguna memiliki cukup A0GI untuk gas
         balance = w3.from_wei(w3.eth.get_balance(account.address), 'ether')
@@ -317,16 +320,27 @@ async def swap_tokens(w3: Web3, private_key: str, token_in: str, token_out: str,
                 except Exception as e:
                     error_str = str(e)
                     # Nonce handling
-                    if "invalid nonce" in error_str.lower():
+                    if "invalid nonce" in error_str.lower() or "nonce too low" in error_str.lower(): # Menambahkan "nonce too low"
                         try:
-                            expected_nonce_str = error_str.split('expected ')[1].split(',')[0]
-                            expected_nonce = int(expected_nonce_str)
-                            print(f"{Fore.YELLOW}    ⚠ Nonce tidak valid. Mencoba lagi dengan nonce: {expected_nonce}{Style.RESET_ALL}")
-                            nonce = expected_nonce
-                            retry_count += 1
-                            await asyncio.sleep(2) # Tambahkan jeda untuk nonce error
-                        except:
-                            print(f"{Fore.YELLOW}    ⚠ Nonce tidak valid. Mendapatkan nonce baru dari jaringan...{Style.RESET_ALL}")
+                            # Coba ekstrak nonce yang diharapkan jika ada dalam pesan error
+                            import re
+                            match = re.search(r'expected (0x[0-9a-fA-F]+)|expected ([\d]+)', error_str)
+                            if match:
+                                if match.group(1): # Hex value
+                                    expected_nonce = int(match.group(1), 16)
+                                else: # Decimal value
+                                    expected_nonce = int(match.group(2))
+                                print(f"{Fore.YELLOW}    ⚠ Nonce tidak valid. Mencoba lagi dengan nonce: {expected_nonce}{Style.RESET_ALL}")
+                                nonce = expected_nonce
+                                retry_count += 1
+                                await asyncio.sleep(2) # Tambahkan jeda untuk nonce error
+                            else:
+                                print(f"{Fore.YELLOW}    ⚠ Nonce tidak valid. Mendapatkan nonce baru dari jaringan...{Style.RESET_ALL}")
+                                await asyncio.sleep(2)
+                                nonce = w3.eth.get_transaction_count(account.address)
+                                retry_count += 1
+                        except Exception as parse_e:
+                            print(f"{Fore.YELLOW}    ⚠ Gagal mengurai nonce dari error: {parse_e}. Mendapatkan nonce baru dari jaringan...{Style.RESET_ALL}")
                             await asyncio.sleep(2)
                             nonce = w3.eth.get_transaction_count(account.address)
                             retry_count += 1
@@ -350,33 +364,29 @@ async def swap_tokens(w3: Web3, private_key: str, token_in: str, token_out: str,
         if success and receipt.status == 1:
             try:
                 amount_out = 0 # Default jika tidak ditemukan
-                # Anda bisa meningkatkan parsing log di sini jika diperlukan
-                # For simplicity, we'll assume the router's exactInputSingle returns amountOut directly
-                # Or you could check for a Transfer event from tokenOut to account.address
-                # Decoding logs can be complex, for testnet a basic approach might suffice.
-                # Example: Check for a Transfer event of token_out_address to account.address
+                # Logika untuk mendecode log Transfer (opsional, karena ini bisa rumit)
                 if receipt.logs:
                     token_out_contract = w3.eth.contract(address=Web3.to_checksum_address(token_out), abi=ERC20_ABI)
-                    transfer_event_signature = w3.keccak(text="Transfer(address,address,uint256)").hex()
+                    # Topic for Transfer(address from, address to, uint256 value)
+                    transfer_event_topic = Web3.keccak(text="Transfer(address,address,uint256)")
 
                     for log in receipt.logs:
                         if log.address == Web3.to_checksum_address(token_out) and \
-                           transfer_event_signature in [topic.hex() for topic in log.topics]:
-                            # Logika untuk mendecode log Transfer (from, to, value)
-                            # Biasanya topic[1] adalah from, topic[2] adalah to, dan data adalah value
+                           log.topics and log.topics[0] == transfer_event_topic:
                             try:
-                                # Example of decoding for a simple Transfer event (needs eth_abi)
-                                decoded_event = w3.codec.decode(['uint256'], log.data)
-                                if decoded_event:
-                                    amount_out = decoded_event[0]
-                                    break # Found it, exit loop
+                                # Topics: [0] = signature, [1] = from (indexed), [2] = to (indexed)
+                                # Data: value
+                                if len(log.topics) >= 3 and Web3.to_checksum_address(log.topics[2][-40:]) == account.address:
+                                    decoded_data = abi.decode(['uint256'], log.data)
+                                    if decoded_data:
+                                        amount_out = decoded_data[0]
+                                        break
                             except Exception as decode_e:
                                 print(f"{Fore.YELLOW}    ⚠ Gagal mendecode log Transfer: {decode_e}{Style.RESET_ALL}")
-                                amount_out = 0 # Reset if decode fails
-                
+                                amount_out = 0
+
                 if amount_out == 0:
                     print(f"{Fore.YELLOW}    ⚠ Tidak dapat mengambil jumlah token keluar secara pasti dari log. Mungkin log tidak standar atau tidak ditemukan.{Style.RESET_ALL}")
-
 
                 token_in_balance = w3.eth.contract(address=Web3.to_checksum_address(token_in), abi=ERC20_ABI).functions.balanceOf(account.address).call() / 10**TOKENS[token_in_symbol]["decimals"]
                 token_out_balance = w3.eth.contract(address=Web3.to_checksum_address(token_out), abi=ERC20_ABI).functions.balanceOf(account.address).call() / 10**TOKENS[token_out_symbol]["decimals"]
@@ -413,25 +423,32 @@ async def approve_token(w3: Web3, private_key: str, token_address: str, spender:
     
     try:
         allowance = token_contract.functions.allowance(account.address, spender).call()
-        if allowance >= amount:
+        if allowance >= amount: # Memeriksa jika allowance sudah cukup
             print(f"{Fore.GREEN}    ✔ Sudah ada allowance yang cukup untuk {spender}{Style.RESET_ALL}")
             return True
 
-        # Atur jumlah persetujuan maksimum (2^256 - 1)
-        max_approval = 2**256 - 1
-        print(f"{Fore.YELLOW}    > Mengatur persetujuan tak terbatas (max uint256){Style.RESET_ALL}")
+        # Mengatur persetujuan untuk jumlah yang akan di-swap saja (bukan tak terbatas)
+        # max_approval = 2**256 - 1 # Hapus baris ini
+        # --- PERUBAHAN: APPROVAL JUMLAH SPESIFIK ---
+        approval_amount = amount # Set persetujuan hanya untuk jumlah yang akan di-swap
+        print(f"{Fore.YELLOW}    > Mengatur persetujuan untuk jumlah spesifik ({amount / (10**TOKENS.get(next(iter(TOKENS)), {'decimals': 18})['decimals']):.6f} token){Style.RESET_ALL}")
+        # --- AKHIR PERUBAHAN ---
         
         nonce = w3.eth.get_transaction_count(account.address)
-        gas_price = w3.to_wei('70', 'gwei')  # Harga gas tetap
+        
+        # --- PERUBAHAN UTAMA: HARGA GAS DINAMIS ---
+        gas_price = w3.eth.gas_price # Dapatkan harga gas saat ini dari jaringan
+        print(f"{Fore.YELLOW}    - Harga Gas yang digunakan: {w3.from_wei(gas_price, 'gwei'):.2f} Gwei{Style.RESET_ALL}")
+        # --- AKHIR PERUBAHAN ---
         
         try:
-            estimated_gas = token_contract.functions.approve(spender, max_approval).estimate_gas({
+            estimated_gas = token_contract.functions.approve(spender, approval_amount).estimate_gas({
                 'from': account.address
             })
-            gas_limit = int(estimated_gas * 1.2)
+            gas_limit = int(estimated_gas * 1.15) # Mengurangi buffer menjadi 15%
         except Exception as e:
-            print(f"{Fore.YELLOW}    - Tidak dapat mengestimasi gas untuk approve: {str(e)}. Menggunakan gas default: 21000{Style.RESET_ALL}")
-            gas_limit = 21000
+            print(f"{Fore.YELLOW}    - Tidak dapat mengestimasi gas untuk approve: {str(e)}. Menggunakan gas default: 60000 (disesuaikan){Style.RESET_ALL}")
+            gas_limit = 60000 # Default yang lebih masuk akal untuk approve
 
         # Fungsi untuk mengeksekusi approve dengan penanganan nonce dan rate limit
         async def execute_approve_with_nonce_handling(nonce=None):
@@ -445,7 +462,7 @@ async def approve_token(w3: Web3, private_key: str, token_address: str, spender:
                         nonce = w3.eth.get_transaction_count(account.address)
                     
                     # Bangun transaksi dengan persetujuan maksimum
-                    tx = token_contract.functions.approve(spender, max_approval).build_transaction({
+                    tx = token_contract.functions.approve(spender, approval_amount).build_transaction({
                         'from': account.address,
                         'nonce': nonce,
                         'gas': gas_limit,
@@ -463,16 +480,26 @@ async def approve_token(w3: Web3, private_key: str, token_address: str, spender:
                 except Exception as e:
                     error_str = str(e)
                     # Nonce handling
-                    if "invalid nonce" in error_str.lower():
+                    if "invalid nonce" in error_str.lower() or "nonce too low" in error_str.lower():
                         try:
-                            expected_nonce_str = error_str.split('expected ')[1].split(',')[0]
-                            expected_nonce = int(expected_nonce_str)
-                            print(f"{Fore.YELLOW}    ⚠ Nonce tidak valid. Mencoba lagi dengan nonce: {expected_nonce}{Style.RESET_ALL}")
-                            nonce = expected_nonce
-                            retry_count += 1
-                            await asyncio.sleep(2) # Tambahkan jeda untuk nonce error
-                        except:
-                            print(f"{Fore.YELLOW}    ⚠ Nonce tidak valid. Mendapatkan nonce baru dari jaringan...{Style.RESET_ALL}")
+                            import re
+                            match = re.search(r'expected (0x[0-9a-fA-F]+)|expected ([\d]+)', error_str)
+                            if match:
+                                if match.group(1):
+                                    expected_nonce = int(match.group(1), 16)
+                                else:
+                                    expected_nonce = int(match.group(2))
+                                print(f"{Fore.YELLOW}    ⚠ Nonce tidak valid. Mencoba lagi dengan nonce: {expected_nonce}{Style.RESET_ALL}")
+                                nonce = expected_nonce
+                                retry_count += 1
+                                await asyncio.sleep(2)
+                            else:
+                                print(f"{Fore.YELLOW}    ⚠ Nonce tidak valid. Mendapatkan nonce baru dari jaringan...{Style.RESET_ALL}")
+                                await asyncio.sleep(2)
+                                nonce = w3.eth.get_transaction_count(account.address)
+                                retry_count += 1
+                        except Exception as parse_e:
+                            print(f"{Fore.YELLOW}    ⚠ Gagal mengurai nonce dari error: {parse_e}. Mendapatkan nonce baru dari jaringan...{Style.RESET_ALL}")
                             await asyncio.sleep(2)
                             nonce = w3.eth.get_transaction_count(account.address)
                             retry_count += 1
@@ -724,8 +751,6 @@ async def run_swaptoken(language: str = 'id'):
 
     for i, (profile_num, private_key) in enumerate(private_keys, 1):
         print_border(f"{LANG[language]['processing_wallet']} {profile_num} ({i}/{len(private_keys)})", Fore.MAGENTA)
-        # Jika Anda memiliki web3connect.py, uncomment baris ini:
-        # conn = connect(private_key) 
         print()
         
         if choice == '1':
@@ -748,4 +773,4 @@ async def run_swaptoken(language: str = 'id'):
 
 
 if __name__ == "__main__":
-    asyncio.run(run_swaptoken('id'))  # Bahasa default adalah Bahasa Indonesia
+    asyncio.run(run_swaptoken('id')) # Bahasa default adalah Bahasa Indonesia
