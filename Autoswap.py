@@ -6,12 +6,12 @@ import time
 from web3 import Web3
 from eth_account import Account
 from colorama import init, Fore, Style
-from eth_abi import abi # Pastikan Anda memiliki eth_abi terinstal (pip install eth-abi)
+from eth_abi import abi
 
-# Inisialisasi colorama
+# Initialize colorama
 init(autoreset=True)
 
-# Lebar Garis
+# Border Width
 BORDER_WIDTH = 80
 
 # ASCII Art Intro
@@ -25,20 +25,20 @@ ASCII_INTRO = """
 by Kazmight
 """
 
-# Konstanta
+# Constants
 NETWORK_URL = "https://evmrpc-testnet.0g.ai"
 CHAIN_ID = 16601
 EXPLORER_URL = "https://chainscan-galileo.0g.ai/tx/0x"
-ROUTER_ADDRESS = "0xb95B5953FF8ee5D5d9818CdbEfE363ff2191318c" # Periksa apakah alamat ini masih valid di 0G.ai
+ROUTER_ADDRESS = "0xb95B5953FF8ee5D5d9818CdbEfE363ff2191318c" # Check if this address is still valid on 0G.ai
 
-# Konfigurasi Token
+# Token Configuration
 TOKENS = {
     "USDT": {"address": "0x3ec8a8705be1d5ca90066b37ba62c4183b024ebf", "decimals": 18},
     "BTC": {"address": "0x36f6414ff1df609214ddaba71c84f18bcf00f67d", "decimals": 18},
     "ETH": {"address": "0x0fe9b43625fa7edd663adcec0728dd635e4abf7c", "decimals": 18},
 }
 
-# Router ABI untuk swap
+# Router ABI for swap
 ROUTER_ABI = [
     {
         "inputs": [
@@ -65,7 +65,7 @@ ROUTER_ABI = [
     }
 ]
 
-# ERC20 ABI untuk approve dan balance
+# ERC20 ABI for approve and balance
 ERC20_ABI = [
     {
         "inputs": [
@@ -96,11 +96,11 @@ ERC20_ABI = [
     },
 ]
 
-# Kamus bahasa
+# Language Dictionary
 LANG = {
     'id': {
         'title': '✨ SWAP TOKEN - OG LABS TESTNET ✨',
-        'info': 'ℹ Info',
+        'info': 'Informasi',
         'found': 'Ditemukan',
         'wallets': 'dompet',
         'select_swap_type': '✦ PILIH TIPE SWAP',
@@ -157,7 +157,7 @@ LANG = {
     }
 }
 
-# Fungsi untuk menampilkan garis batas yang bagus
+# Function to print a nice border
 def print_border(text: str, color=Fore.CYAN, width=BORDER_WIDTH):
     text = text.strip()
     if len(text) > width - 4:
@@ -167,7 +167,7 @@ def print_border(text: str, color=Fore.CYAN, width=BORDER_WIDTH):
     print(f"{color}║{padded_text}║{Style.RESET_ALL}")
     print(f"{color}╚{'═' * (width - 2)}╝{Style.RESET_ALL}")
 
-# Fungsi untuk mendapatkan persentase swap
+# Function to get swap percentage
 def get_swap_percentage(language: str = 'id') -> float:
     print_border(LANG[language]['enter_percentage'], Fore.YELLOW)
     while True:
@@ -182,11 +182,11 @@ def get_swap_percentage(language: str = 'id') -> float:
         except ValueError:
             print(f"{Fore.RED}    ✖ {LANG[language]['error']}: {LANG[language]['invalid_number']}{Style.RESET_ALL}")
 
-# Fungsi untuk menampilkan pemisah
+# Function to print separator
 def print_separator(color=Fore.MAGENTA):
     print(f"{color}{'═' * BORDER_WIDTH}{Style.RESET_ALL}")
 
-# Fungsi untuk memeriksa kunci privat yang valid
+# Function to check for valid private key
 def is_valid_private_key(key: str) -> bool:
     key = key.strip()
     if not key.startswith('0x'):
@@ -197,13 +197,13 @@ def is_valid_private_key(key: str) -> bool:
     except ValueError:
         return False
 
-# Fungsi untuk membaca kunci privat dari file pvkey.txt
+# Function to load private keys from pvkey.txt
 def load_private_keys(file_path: str = "pvkey.txt", language: str = 'id') -> list:
     try:
         if not os.path.exists(file_path):
             print(f"{Fore.RED}    ✖ {LANG[language]['pvkey_not_found']}{Style.RESET_ALL}")
             with open(file_path, 'w') as f:
-                f.write("# Tambahkan private key di sini, setiap key di baris baru\n# Contoh: 0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef\n")
+                f.write("# Add private keys here, one per line\n# Example: 0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef\n")
             sys.exit(1)
         
         valid_keys = []
@@ -216,7 +216,7 @@ def load_private_keys(file_path: str = "pvkey.txt", language: str = 'id') -> lis
                             key = '0x' + key
                         valid_keys.append((i, key))
                     else:
-                        print(f"{Fore.YELLOW}    ⚠ {LANG[language]['error']}: Baris {i} - {key} {LANG[language]['invalid_choice']}{Style.RESET_ALL}")
+                        print(f"{Fore.YELLOW}    ⚠ {LANG[language]['error']}: Line {i} - {key} {LANG[language]['invalid_choice']}{Style.RESET_ALL}")
         
         if not valid_keys:
             print(f"{Fore.RED}    ✖ {LANG[language]['pvkey_empty']}{Style.RESET_ALL}")
@@ -227,7 +227,7 @@ def load_private_keys(file_path: str = "pvkey.txt", language: str = 'id') -> lis
         print(f"{Fore.RED}    ✖ {LANG[language]['pvkey_error']}: {str(e)}{Style.RESET_ALL}")
         sys.exit(1)
 
-# Fungsi untuk koneksi Web3
+# Function for Web3 connection
 def connect_web3(language: str = 'id'):
     try:
         w3 = Web3(Web3.HTTPProvider(NETWORK_URL))
@@ -241,66 +241,99 @@ def connect_web3(language: str = 'id'):
         print(f"{Fore.RED}    ✖ {LANG[language]['web3_error']}: {str(e)}{Style.RESET_ALL}")
         sys.exit(1)
 
-# Fungsi untuk swap token
+# Helper function to get gas price with retries
+async def get_gas_price_with_retries(w3: Web3, language: str = 'id', max_retries=5):
+    for i in range(max_retries):
+        try:
+            gas_price = w3.eth.gas_price
+            if gas_price > 0:
+                return gas_price
+            else:
+                print(f"{Fore.YELLOW}    ⚠ Harga gas 0 Gwei terdeteksi (dari RPC). Menggunakan 1 Gwei sebagai minimal.{Style.RESET_ALL}")
+                return w3.to_wei(1, 'gwei')
+        except Exception as e:
+            error_str = str(e)
+            if "rate exceeded" in error_str.lower() or "too many requests" in error_str.lower():
+                wait_time = 10 # Fixed delay for rate limit during gas price fetch
+                print(f"{Fore.YELLOW}    ⚠ Gagal mendapatkan harga gas (Rate limit). Menunggu {wait_time:.2f} detik ({i+1}/{max_retries})...{Style.RESET_ALL}")
+                await asyncio.sleep(wait_time)
+            else:
+                print(f"{Fore.YELLOW}    ⚠ Gagal mendapatkan harga gas: {str(e)}. Mencoba lagi dalam 5 detik ({i+1}/{max_retries})...{Style.RESET_ALL}")
+                await asyncio.sleep(5)
+    print(f"{Fore.RED}    ✖ Gagal mendapatkan harga gas yang valid setelah {max_retries} percobaan. Menggunakan harga gas minimal 1 Gwei.{Style.RESET_ALL}")
+    return w3.to_wei(1, 'gwei') # Fallback to 1 Gwei if all retries fail
+
+# Function to swap tokens
 async def swap_tokens(w3: Web3, private_key: str, token_in: str, token_out: str, amount_in: int, token_in_symbol: str, token_out_symbol: str, language: str = 'id'):
     account = Account.from_key(private_key)
     router_contract = w3.eth.contract(address=Web3.to_checksum_address(ROUTER_ADDRESS), abi=ROUTER_ABI)
 
     try:
-        # Approve token sebelum swap
+        # Approve token before swap
         if not await approve_token(w3, private_key, token_in, ROUTER_ADDRESS, amount_in, language):
             return False
 
-        # Siapkan parameter swap
+        # Prepare swap parameters
         swap_params = {
             "tokenIn": Web3.to_checksum_address(token_in),
             "tokenOut": Web3.to_checksum_address(token_out),
             "fee": 3000,  # 0.3%
             "recipient": account.address,
-            "deadline": int(time.time()) + 1800,  # 30 menit
+            "deadline": int(time.time()) + 1800,  # 30 minutes
             "amountIn": amount_in,
             "amountOutMinimum": 0,
             "sqrtPriceLimitX96": 0,
         }
 
-        # Dapatkan parameter transaksi
+        # Get transaction parameters
         nonce = w3.eth.get_transaction_count(account.address)
         
-        # --- PERUBAHAN UTAMA: HARGA GAS DINAMIS ---
-        gas_price = w3.eth.gas_price # Dapatkan harga gas saat ini dari jaringan
+        # --- PRIMARY CHANGE: DYNAMIC GAS PRICE WITH RETRY ---
+        gas_price = await get_gas_price_with_retries(w3, language)
         print(f"{Fore.YELLOW}    - Harga Gas yang digunakan: {w3.from_wei(gas_price, 'gwei'):.2f} Gwei{Style.RESET_ALL}")
-        # --- AKHIR PERUBAHAN ---
+        # --- END OF CHANGE ---
         
-        try:
-            estimated_gas = router_contract.functions.exactInputSingle(swap_params).estimate_gas({
-                'from': account.address,
-                'value': 0
-            })
-            gas_limit = int(estimated_gas * 1.15) # Mengurangi buffer menjadi 15%
-            print(f"{Fore.YELLOW}    - Estimasi Gas: {estimated_gas} | Batas Gas yang digunakan: {gas_limit}{Style.RESET_ALL}")
-        except Exception as e:
-            print(f"{Fore.YELLOW}    - Tidak dapat mengestimasi gas: {str(e)}. Menggunakan gas default: 300000 (disesuaikan){Style.RESET_ALL}")
-            gas_limit = 300000 # Default yang lebih masuk akal untuk swap jika estimasi gagal
+        gas_limit = 500000 # Reasonable default for swap if estimation fails
+        
+        # Try estimating gas with retries for rate limits
+        for i in range(3): # Max 3 retries for gas estimation
+            try:
+                estimated_gas = router_contract.functions.exactInputSingle(swap_params).estimate_gas({
+                    'from': account.address,
+                    'value': 0
+                })
+                gas_limit = int(estimated_gas * 1.20) # Increased buffer to 20%
+                print(f"{Fore.YELLOW}    - Estimasi Gas: {estimated_gas} | Batas Gas yang digunakan: {gas_limit}{Style.RESET_ALL}")
+                break # Exit loop if estimation successful
+            except Exception as e:
+                error_str = str(e)
+                if "rate exceeded" in error_str.lower() or "too many requests" in error_str.lower():
+                    wait_time = 10 # Fixed delay for rate limit during gas estimation
+                    print(f"{Fore.YELLOW}    ⚠ Rate limit saat estimasi gas. Menunggu {wait_time:.2f} detik ({i+1}/3)...{Style.RESET_ALL}")
+                    await asyncio.sleep(wait_time)
+                else:
+                    print(f"{Fore.YELLOW}    - Tidak dapat mengestimasi gas: {str(e)}. Menggunakan gas default: {gas_limit} (disesuaikan){Style.RESET_ALL}")
+                    break # Exit if it's not a rate limit error or after retries
 
-        # Periksa apakah pengguna memiliki cukup A0GI untuk gas
-        balance = w3.from_wei(w3.eth.get_balance(account.address), 'ether')
-        required_balance = w3.from_wei(gas_limit * gas_price, 'ether')
-        if balance < required_balance:
-            print(f"{Fore.RED}    ✖ {LANG[language]['no_balance']} (Perlu: {required_balance:.6f} A0GI, Punya: {balance:.6f} A0GI){Style.RESET_ALL}")
+        # Check if user has enough A0GI for gas
+        balance_a0gi = w3.from_wei(w3.eth.get_balance(account.address), 'ether')
+        required_balance_a0gi = w3.from_wei(gas_limit * gas_price, 'ether')
+        if balance_a0gi < required_balance_a0gi:
+            print(f"{Fore.RED}    ✖ {LANG[language]['no_balance']} (Perlu: {required_balance_a0gi:.6f} A0GI, Punya: {balance_a0gi:.6f} A0GI){Style.RESET_ALL}")
             return False
 
-        # Fungsi untuk mengeksekusi transaksi dengan penanganan nonce dan rate limit
+        # Function to execute transaction with nonce and rate limit handling
         async def execute_transaction_with_nonce_handling(nonce=None):
-            max_retries = 5 # Meningkatkan retry attempts
+            max_retries = 5 # Increased retry attempts
             retry_count = 0
             
             while retry_count < max_retries:
                 try:
-                    # Jika nonce tidak diberikan, dapatkan dari jaringan
+                    # If nonce is not provided, get from network
                     if nonce is None:
                         nonce = w3.eth.get_transaction_count(account.address)
                     
-                    # Bangun transaksi
+                    # Build transaction
                     tx = router_contract.functions.exactInputSingle(swap_params).build_transaction({
                         'from': account.address,
                         'nonce': nonce,
@@ -320,9 +353,8 @@ async def swap_tokens(w3: Web3, private_key: str, token_in: str, token_out: str,
                 except Exception as e:
                     error_str = str(e)
                     # Nonce handling
-                    if "invalid nonce" in error_str.lower() or "nonce too low" in error_str.lower(): # Menambahkan "nonce too low"
+                    if "invalid nonce" in error_str.lower() or "nonce too low" in error_str.lower():
                         try:
-                            # Coba ekstrak nonce yang diharapkan jika ada dalam pesan error
                             import re
                             match = re.search(r'expected (0x[0-9a-fA-F]+)|expected ([\d]+)', error_str)
                             if match:
@@ -333,7 +365,7 @@ async def swap_tokens(w3: Web3, private_key: str, token_in: str, token_out: str,
                                 print(f"{Fore.YELLOW}    ⚠ Nonce tidak valid. Mencoba lagi dengan nonce: {expected_nonce}{Style.RESET_ALL}")
                                 nonce = expected_nonce
                                 retry_count += 1
-                                await asyncio.sleep(2) # Tambahkan jeda untuk nonce error
+                                await asyncio.sleep(2) # Add small delay for nonce error
                             else:
                                 print(f"{Fore.YELLOW}    ⚠ Nonce tidak valid. Mendapatkan nonce baru dari jaringan...{Style.RESET_ALL}")
                                 await asyncio.sleep(2)
@@ -344,9 +376,9 @@ async def swap_tokens(w3: Web3, private_key: str, token_in: str, token_out: str,
                             await asyncio.sleep(2)
                             nonce = w3.eth.get_transaction_count(account.address)
                             retry_count += 1
-                    # Rate limit handling
+                    # Rate limit handling - MORE AGGRESSIVE BACKOFF
                     elif "rate exceeded" in error_str.lower() or "too many requests" in error_str.lower():
-                        wait_time = 2 ** retry_count + random.uniform(1, 3) # Exponential backoff with jitter
+                        wait_time = 10 # Fixed delay for rate limit during tx execution
                         print(f"{Fore.YELLOW}    ⚠ Rate limit exceeded. Menunggu {wait_time:.2f} detik sebelum mencoba lagi...{Style.RESET_ALL}")
                         await asyncio.sleep(wait_time)
                         retry_count += 1
@@ -358,13 +390,13 @@ async def swap_tokens(w3: Web3, private_key: str, token_in: str, token_out: str,
             print(f"{Fore.RED}    ✖ Swap gagal setelah {max_retries} kali percobaan{Style.RESET_ALL}")
             return False, None, None, None
 
-        # Eksekusi transaksi dengan penanganan nonce dan rate limit
+        # Execute transaction with nonce and rate limit handling
         success, receipt, tx_hash, tx_link = await execute_transaction_with_nonce_handling()
         
         if success and receipt.status == 1:
             try:
-                amount_out = 0 # Default jika tidak ditemukan
-                # Logika untuk mendecode log Transfer (opsional, karena ini bisa rumit)
+                amount_out = 0 # Default if not found
+                # Logic to decode Transfer log (optional, as this can be complex)
                 if receipt.logs:
                     token_out_contract = w3.eth.contract(address=Web3.to_checksum_address(token_out), abi=ERC20_ABI)
                     # Topic for Transfer(address from, address to, uint256 value)
@@ -376,7 +408,9 @@ async def swap_tokens(w3: Web3, private_key: str, token_in: str, token_out: str,
                             try:
                                 # Topics: [0] = signature, [1] = from (indexed), [2] = to (indexed)
                                 # Data: value
-                                if len(log.topics) >= 3 and Web3.to_checksum_address(log.topics[2][-40:]) == account.address:
+                                # Check if 'to' address in log topics matches current account
+                                # log.topics[2] is the 'to' address as an indexed topic (bytes32)
+                                if len(log.topics) >= 3 and Web3.to_checksum_address('0x' + log.topics[2].hex()[-40:]) == account.address:
                                     decoded_data = abi.decode(['uint256'], log.data)
                                     if decoded_data:
                                         amount_out = decoded_data[0]
@@ -388,14 +422,15 @@ async def swap_tokens(w3: Web3, private_key: str, token_in: str, token_out: str,
                 if amount_out == 0:
                     print(f"{Fore.YELLOW}    ⚠ Tidak dapat mengambil jumlah token keluar secara pasti dari log. Mungkin log tidak standar atau tidak ditemukan.{Style.RESET_ALL}")
 
-                token_in_balance = w3.eth.contract(address=Web3.to_checksum_address(token_in), abi=ERC20_ABI).functions.balanceOf(account.address).call() / 10**TOKENS[token_in_symbol]["decimals"]
-                token_out_balance = w3.eth.contract(address=Web3.to_checksum_address(token_out), abi=ERC20_ABI).functions.balanceOf(account.address).call() / 10**TOKENS[token_out_symbol]["decimals"]
+                # Ensure token_in and token_out symbols exist in TOKENS before accessing
+                token_in_balance = w3.eth.contract(address=Web3.to_checksum_address(token_in), abi=ERC20_ABI).functions.balanceOf(account.address).call() / 10**TOKENS.get(token_in_symbol, {"decimals": 18})["decimals"]
+                token_out_balance = w3.eth.contract(address=Web3.to_checksum_address(token_out), abi=ERC20_ABI).functions.balanceOf(account.address).call() / 10**TOKENS.get(token_out_symbol, {"decimals": 18})["decimals"]
                 
                 print(f"{Fore.GREEN}    ✔ {LANG[language]['success']}{Style.RESET_ALL}")
                 print(f"{Fore.YELLOW}      - {LANG[language]['address']}: {account.address}{Style.RESET_ALL}")
-                print(f"{Fore.YELLOW}      - Jumlah masuk: {amount_in / (10**TOKENS[token_in_symbol]['decimals']):.6f} {token_in_symbol}{Style.RESET_ALL}")
+                print(f"{Fore.YELLOW}      - Jumlah masuk: {amount_in / (10**TOKENS.get(token_in_symbol, {'decimals': 18})['decimals']):.6f} {token_in_symbol}{Style.RESET_ALL}")
                 if amount_out > 0:
-                    print(f"{Fore.YELLOW}      - Jumlah keluar: {amount_out / (10**TOKENS[token_out_symbol]['decimals']):.6f} {token_out_symbol}{Style.RESET_ALL}")
+                    print(f"{Fore.YELLOW}      - Jumlah keluar: {amount_out / (10**TOKENS.get(token_out_symbol, {'decimals': 18})['decimals']):.6f} {token_out_symbol}{Style.RESET_ALL}")
                 print(f"{Fore.YELLOW}      - {LANG[language]['balance']} {token_in_symbol}: {token_in_balance:.6f}{Style.RESET_ALL}")
                 print(f"{Fore.YELLOW}      - {LANG[language]['balance']} {token_out_symbol}: {token_out_balance:.6f}{Style.RESET_ALL}")
                 print(f"{Fore.YELLOW}      - {LANG[language]['gas']}: {receipt['gasUsed']}{Style.RESET_ALL}")
@@ -416,52 +451,58 @@ async def swap_tokens(w3: Web3, private_key: str, token_in: str, token_out: str,
         print(f"{Fore.RED}    ✖ Swap gagal: {str(e)}{Style.RESET_ALL}")
         return False
 
-# Fungsi approve token
+# Function to approve token
 async def approve_token(w3: Web3, private_key: str, token_address: str, spender: str, amount: int, language: str = 'id'):
     account = Account.from_key(private_key)
     token_contract = w3.eth.contract(address=Web3.to_checksum_address(token_address), abi=ERC20_ABI)
     
     try:
         allowance = token_contract.functions.allowance(account.address, spender).call()
-        if allowance >= amount: # Memeriksa jika allowance sudah cukup
+        if allowance >= amount: # Check if allowance is sufficient
             print(f"{Fore.GREEN}    ✔ Sudah ada allowance yang cukup untuk {spender}{Style.RESET_ALL}")
             return True
 
-        # Mengatur persetujuan untuk jumlah yang akan di-swap saja (bukan tak terbatas)
-        # max_approval = 2**256 - 1 # Hapus baris ini
-        # --- PERUBAHAN: APPROVAL JUMLAH SPESIFIK ---
-        approval_amount = amount # Set persetujuan hanya untuk jumlah yang akan di-swap
+        # Set approval for the specific amount to be swapped (not unlimited)
+        approval_amount = amount # Set approval only for the amount to be swapped
         print(f"{Fore.YELLOW}    > Mengatur persetujuan untuk jumlah spesifik ({amount / (10**TOKENS.get(next(iter(TOKENS)), {'decimals': 18})['decimals']):.6f} token){Style.RESET_ALL}")
-        # --- AKHIR PERUBAHAN ---
         
         nonce = w3.eth.get_transaction_count(account.address)
         
-        # --- PERUBAHAN UTAMA: HARGA GAS DINAMIS ---
-        gas_price = w3.eth.gas_price # Dapatkan harga gas saat ini dari jaringan
+        gas_price = await get_gas_price_with_retries(w3, language) # Get gas price with retries
         print(f"{Fore.YELLOW}    - Harga Gas yang digunakan: {w3.from_wei(gas_price, 'gwei'):.2f} Gwei{Style.RESET_ALL}")
-        # --- AKHIR PERUBAHAN ---
         
-        try:
-            estimated_gas = token_contract.functions.approve(spender, approval_amount).estimate_gas({
-                'from': account.address
-            })
-            gas_limit = int(estimated_gas * 1.15) # Mengurangi buffer menjadi 15%
-        except Exception as e:
-            print(f"{Fore.YELLOW}    - Tidak dapat mengestimasi gas untuk approve: {str(e)}. Menggunakan gas default: 60000 (disesuaikan){Style.RESET_ALL}")
-            gas_limit = 60000 # Default yang lebih masuk akal untuk approve
+        gas_limit = 60000 # Reasonable default for approve
+        
+        # Try estimating gas with retries for rate limits
+        for i in range(3): # Max 3 retries for gas estimation
+            try:
+                estimated_gas = token_contract.functions.approve(spender, approval_amount).estimate_gas({
+                    'from': account.address
+                })
+                gas_limit = int(estimated_gas * 1.20) # Increased buffer to 20%
+                break # Exit loop if estimation successful
+            except Exception as e:
+                error_str = str(e)
+                if "rate exceeded" in error_str.lower() or "too many requests" in error_str.lower():
+                    wait_time = 10 # Fixed delay for rate limit during gas estimation
+                    print(f"{Fore.YELLOW}    ⚠ Rate limit saat estimasi gas approve. Menunggu {wait_time:.2f} detik ({i+1}/3)...{Style.RESET_ALL}")
+                    await asyncio.sleep(wait_time)
+                else:
+                    print(f"{Fore.YELLOW}    - Tidak dapat mengestimasi gas untuk approve: {str(e)}. Menggunakan gas default: {gas_limit} (disesuaikan){Style.RESET_ALL}")
+                    break # Exit if it's not a rate limit error or after retries
 
-        # Fungsi untuk mengeksekusi approve dengan penanganan nonce dan rate limit
+        # Function to execute approve with nonce and rate limit handling
         async def execute_approve_with_nonce_handling(nonce=None):
-            max_retries = 5 # Meningkatkan retry attempts
+            max_retries = 5 # Increased retry attempts
             retry_count = 0
             
             while retry_count < max_retries:
                 try:
-                    # Jika nonce tidak diberikan, dapatkan dari jaringan
+                    # If nonce is not provided, get from network
                     if nonce is None:
                         nonce = w3.eth.get_transaction_count(account.address)
                     
-                    # Bangun transaksi dengan persetujuan maksimum
+                    # Build transaction with maximum approval
                     tx = token_contract.functions.approve(spender, approval_amount).build_transaction({
                         'from': account.address,
                         'nonce': nonce,
@@ -503,9 +544,9 @@ async def approve_token(w3: Web3, private_key: str, token_address: str, spender:
                             await asyncio.sleep(2)
                             nonce = w3.eth.get_transaction_count(account.address)
                             retry_count += 1
-                    # Rate limit handling
+                    # Rate limit handling - MORE AGGRESSIVE BACKOFF
                     elif "rate exceeded" in error_str.lower() or "too many requests" in error_str.lower():
-                        wait_time = 5 ** retry_count + random.uniform(3, 5) # Exponential backoff with jitter
+                        wait_time = 10 # Fixed delay for rate limit during tx execution
                         print(f"{Fore.YELLOW}    ⚠ Rate limit exceeded. Menunggu {wait_time:.2f} detik sebelum mencoba lagi...{Style.RESET_ALL}")
                         await asyncio.sleep(wait_time)
                         retry_count += 1
@@ -517,7 +558,7 @@ async def approve_token(w3: Web3, private_key: str, token_address: str, spender:
             print(f"{Fore.RED}    ✖ Approve gagal setelah {max_retries} kali percobaan{Style.RESET_ALL}")
             return False, None, None
 
-        # Eksekusi transaksi dengan penanganan nonce dan rate limit
+        # Execute transaction with nonce and rate limit handling
         success, receipt, tx_hash = await execute_approve_with_nonce_handling()
         
         if success and receipt.status == 1:
@@ -533,7 +574,7 @@ async def approve_token(w3: Web3, private_key: str, token_address: str, spender:
         print(f"{Fore.RED}    ✖ Approve gagal: {str(e)}{Style.RESET_ALL}")
         return False
 
-# Fungsi untuk mendapatkan jumlah swap
+# Function to get swap count
 def get_swap_count(language: str = 'id') -> int:
     print_border(LANG[language]['enter_swap_count'], Fore.YELLOW)
     while True:
@@ -548,9 +589,8 @@ def get_swap_count(language: str = 'id') -> int:
         except ValueError:
             print(f"{Fore.RED}    ✖ {LANG[language]['error']}: {LANG[language]['invalid_number']}{Style.RESET_ALL}")
 
-# Fungsi untuk menampilkan saldo
+# Function to display balances
 def display_balances(w3: Web3, account_address: str, language: str = 'id'):
-    # Iterate through TOKENS to display balances dynamically
     for symbol, token_info in TOKENS.items():
         try:
             contract = w3.eth.contract(address=Web3.to_checksum_address(token_info['address']), abi=ERC20_ABI)
@@ -558,9 +598,9 @@ def display_balances(w3: Web3, account_address: str, language: str = 'id'):
             balance = balance_wei / (10**token_info['decimals'])
             print(f"{Fore.YELLOW}    - {LANG[language]['balance']} {symbol}: {balance:.6f}{Style.RESET_ALL}")
         except Exception as e:
-            print(f"{Fore.RED}    ✖ Error fetching balance for {symbol}: {str(e)}{Style.RESET_ALL}")
+            # Silently skip if fetching token balance fails (e.g., no balance or RPC issue)
+            pass
 
-    # Display native token balance (A0GI)
     try:
         a0gi_balance = w3.from_wei(w3.eth.get_balance(account_address), 'ether')
         print(f"{Fore.YELLOW}    - {LANG[language]['balance']} A0GI: {a0gi_balance:.6f}{Style.RESET_ALL}")
@@ -568,7 +608,7 @@ def display_balances(w3: Web3, account_address: str, language: str = 'id'):
         print(f"{Fore.RED}    ✖ Error fetching A0GI balance: {str(e)}{Style.RESET_ALL}")
 
 
-# Swap acak
+# Random Swap
 async def random_swap(w3: Web3, private_key: str, swap_count: int, percent: float, wallet_index: int, language: str = 'id'):
     account = Account.from_key(private_key)
     successful_swaps = 0
@@ -576,35 +616,55 @@ async def random_swap(w3: Web3, private_key: str, swap_count: int, percent: floa
     for swap_num in range(swap_count):
         print(f"{Fore.CYAN}    > {LANG[language]['swap']} {swap_num + 1}/{swap_count}{Style.RESET_ALL}")
         
-        # Tampilkan saldo
+        # Display balances for the current account
         display_balances(w3, account.address, language)
         
-        # Dapatkan daftar token yang memiliki saldo
+        # Get list of tokens with a positive balance
         token_balances = {}
         for symbol, token_data in TOKENS.items():
-            contract = w3.eth.contract(address=Web3.to_checksum_address(token_data['address']), abi=ERC20_ABI)
-            balance = contract.functions.balanceOf(account.address).call()
-            token_balances[symbol] = balance
+            try:
+                contract = w3.eth.contract(address=Web3.to_checksum_address(token_data['address']), abi=ERC20_ABI)
+                balance = contract.functions.balanceOf(account.address).call()
+                token_balances[symbol] = balance
+            except Exception as e:
+                print(f"{Fore.YELLOW}    ⚠ Gagal mengambil saldo {symbol}: {str(e)}. Melewatkan token ini untuk swap acak.{Style.RESET_ALL}")
+                token_balances[symbol] = 0
         
         tokens_with_balance = [symbol for symbol, balance in token_balances.items() if balance > 0]
         if not tokens_with_balance:
             print(f"{Fore.RED}    ✖ {LANG[language]['no_balance']}{Style.RESET_ALL}")
             break
 
-        token_in_symbol = random.choice(tokens_with_balance)
+        token_in_symbol = None
+        for _ in range(len(TOKENS)): # Try all available tokens once
+            candidate_symbol = random.choice(list(TOKENS.keys()))
+            if token_balances.get(candidate_symbol, 0) > 0:
+                token_in_symbol = candidate_symbol
+                break
+        
+        if token_in_symbol is None:
+            print(f"{Fore.RED}    ✖ Tidak ada token dengan saldo yang cukup untuk di-swap.{Style.RESET_ALL}")
+            break
+
         token_in_address = TOKENS[token_in_symbol]["address"]
         balance_wei = token_balances[token_in_symbol]
         balance = balance_wei / 10**TOKENS[token_in_symbol]["decimals"]
         
-        # Hitung jumlah berdasarkan persentase saldo
+        # Calculate amount based on percentage of balance
         amount = balance * (percent / 100)
-        amount_in = int(amount * (10**TOKENS[token_in_symbol]["decimals"])) # Ensure correct decimal conversion
+        amount_in = int(amount * (10**TOKENS[token_in_symbol]["decimals"]))
         
         if amount_in <= 0:
-            print(f"{Fore.RED}    ✖ {LANG[language]['no_balance']} (Saldo terlalu kecil: {balance} {token_in_symbol}){Style.RESET_ALL}")
-            break
+            print(f"{Fore.RED}    ✖ {LANG[language]['no_balance']} (Saldo {token_in_symbol} terlalu kecil untuk di-swap {percent}%: {balance:.6f}){Style.RESET_ALL}")
+            remaining_tokens = [s for s in tokens_with_balance if s != token_in_symbol]
+            if remaining_tokens:
+                print(f"{Fore.YELLOW}    ℹ Mencoba token lain dari daftar saldo yang tersedia.{Style.RESET_ALL}")
+                continue
+            else:
+                print(f"{Fore.RED}    ✖ Tidak ada token lain dengan saldo yang cukup untuk di-swap.{Style.RESET_ALL}")
+                break
             
-        # Tampilkan detail perhitungan
+        # Display calculation details
         print(f"{Fore.YELLOW}    > {LANG[language]['calculating_amount'].format(percent=percent, balance=balance, amount=amount, symbol=token_in_symbol)}{Style.RESET_ALL}")
 
         # Choose token_out_symbol ensuring it's different from token_in_symbol
@@ -619,24 +679,24 @@ async def random_swap(w3: Web3, private_key: str, swap_count: int, percent: floa
             successful_swaps += 1
         
         if swap_num < swap_count - 1:
-            delay = random.uniform(10, 30) # Default delay, bisa disesuaikan
+            delay = 10 # All internal swap delays changed to 10s
             print(f"{Fore.YELLOW}    ℹ {LANG[language]['pausing']} {delay:.2f} {LANG[language]['seconds']}{Style.RESET_ALL}")
             await asyncio.sleep(delay)
         print_separator()
     
     return successful_swaps
 
-# Fungsi swap manual yang dimodifikasi dengan alur baru
+# Modified manual swap function
 async def manual_swap(w3: Web3, private_key: str, wallet_index: int, language: str = 'id', pair_choice=None, percent=None):
     account = Account.from_key(private_key)
     
-    # 1. Pertama tampilkan saldo untuk dompet ini
+    # 1. First display balances for this wallet
     print_separator()
     print(f"{Fore.CYAN}    > Saldo token yang tersedia untuk dompet ini:{Style.RESET_ALL}")
     display_balances(w3, account.address, language)
     print_separator()
     
-    # 2. Gunakan pilihan pasangan yang disediakan atau minta dari pengguna
+    # 2. Use provided pair choice or ask from user
     if pair_choice is None:
         print_border(LANG[language]['select_manual_swap'], Fore.YELLOW)
         for i in range(1, 7):
@@ -648,9 +708,9 @@ async def manual_swap(w3: Web3, private_key: str, wallet_index: int, language: s
                 pair_choice = int(input(f"{Fore.YELLOW}    > {LANG[language]['manual_swap_prompt']}{Style.RESET_ALL}"))
                 if pair_choice in range(1, 7):
                     break
-                print(f"{Fore.RED}    ✖ {LANG[language]['invalid_choice']}{Style.RESET_ALL}")
             except ValueError:
                 print(f"{Fore.RED}    ✖ {LANG[language]['invalid_number']}{Style.RESET_ALL}")
+            print(f"{Fore.RED}    ✖ {LANG[language]['invalid_choice']}{Style.RESET_ALL}")
 
     pairs = {
         1: ("USDT", "ETH"), 2: ("ETH", "USDT"), 3: ("USDT", "BTC"),
@@ -663,7 +723,7 @@ async def manual_swap(w3: Web3, private_key: str, wallet_index: int, language: s
     
     print(f"{Fore.GREEN}    ✔ Menggunakan pasangan: {token_in_symbol} -> {token_out_symbol}{Style.RESET_ALL}")
     
-    # 3. Dapatkan saldo saat ini dari token yang dipilih
+    # 3. Get current balance of selected token
     token_contract = w3.eth.contract(address=Web3.to_checksum_address(token_in_address), abi=ERC20_ABI)
     balance_wei = token_contract.functions.balanceOf(account.address).call()
     balance = balance_wei / 10**TOKENS[token_in_symbol]["decimals"]
@@ -672,25 +732,29 @@ async def manual_swap(w3: Web3, private_key: str, wallet_index: int, language: s
         print(f"{Fore.RED}    ✖ {LANG[language]['no_balance']} (Tidak ada {token_in_symbol} untuk di-swap){Style.RESET_ALL}")
         return 0
     
-    # 4. Gunakan persentase yang disediakan atau minta dari pengguna
+    # 4. Use provided percentage or ask from user
     if percent is None:
         percent = get_swap_percentage(language)
     else:
         print(f"{Fore.GREEN}    ✔ {LANG[language]['selected_percent'].format(percent=percent)}{Style.RESET_ALL}")
     
-    # 5. Hitung jumlah aktual berdasarkan persentase
+    # 5. Calculate actual amount based on percentage
     amount = balance * (percent / 100)
     amount_in = int(amount * (10**TOKENS[token_in_symbol]["decimals"])) # Ensure correct decimal conversion
     
-    # 6. Tampilkan detail perhitungan
+    if amount_in <= 0:
+        print(f"{Fore.RED}    ✖ {LANG[language]['no_balance']} (Saldo {token_in_symbol} terlalu kecil untuk di-swap {percent}%: {balance:.6f}){Style.RESET_ALL}")
+        return 0
+
+    # 6. Display calculation details
     print(f"{Fore.YELLOW}    > {LANG[language]['calculating_amount'].format(percent=percent, balance=balance, amount=amount, symbol=token_in_symbol)}{Style.RESET_ALL}")
     
-    # 7. Eksekusi swap dengan jumlah yang dihitung (menggunakan pengaturan gas asli)
+    # 7. Execute swap with calculated amount
     success = await swap_tokens(w3, private_key, token_in_address, token_out_address, amount_in, token_in_symbol, token_out_symbol, language)
     return 1 if success else 0
 
 async def run_swaptoken(language: str = 'id'):
-    print(Fore.MAGENTA + ASCII_INTRO + Style.RESET_ALL) # Cetak ASCII art
+    print(Fore.MAGENTA + ASCII_INTRO + Style.RESET_ALL) # Print ASCII art
     print_border(LANG[language]['title'], Fore.CYAN)
     print()
 
@@ -713,19 +777,15 @@ async def run_swaptoken(language: str = 'id'):
         print()
 
     if choice == '1':
-        # Untuk swap acak, minta jumlah swap dan persentase, bukan jumlah absolut
         swap_count = get_swap_count(language)
-        percent = get_swap_percentage(language)  # Sekarang menggunakan persentase untuk swap acak juga
+        percent = get_swap_percentage(language)
     else:
-        # Untuk swap manual, kita akan meminta pasangan dan persentase sekali untuk semua dompet
-        # Tampilkan saldo contoh dari dompet pertama untuk membantu pengambilan keputusan
         if private_keys:
             first_account = Account.from_key(private_keys[0][1])
             print(f"{Fore.CYAN}    > Saldo contoh dari dompet pertama:{Style.RESET_ALL}")
             display_balances(w3, first_account.address, language)
             print_separator()
         
-        # Minta pasangan swap sekali
         print_border(LANG[language]['select_manual_swap'], Fore.YELLOW)
         for i in range(1, 7):
             print(f"{Fore.GREEN}      ├─ {LANG[language]['manual_swap_options'][i]}{Style.RESET_ALL}" if i < 6 else 
@@ -736,11 +796,10 @@ async def run_swaptoken(language: str = 'id'):
                 pair_choice = int(input(f"{Fore.YELLOW}    > {LANG[language]['manual_swap_prompt']}{Style.RESET_ALL}"))
                 if pair_choice in range(1, 7):
                     break
-                print(f"{Fore.RED}    ✖ {LANG[language]['invalid_choice']}{Style.RESET_ALL}")
             except ValueError:
                 print(f"{Fore.RED}    ✖ {LANG[language]['invalid_number']}{Style.RESET_ALL}")
+            print(f"{Fore.RED}    ✖ {LANG[language]['invalid_choice']}{Style.RESET_ALL}")
         
-        # Dapatkan persentase sekali
         percent = get_swap_percentage(language)
         swap_count = 1 # For manual swap, it's one swap per wallet
 
@@ -755,15 +814,14 @@ async def run_swaptoken(language: str = 'id'):
         
         if choice == '1':
             print_border(LANG[language]['start_random'].format(swap_count=swap_count), Fore.CYAN)
-            successful_swaps += await random_swap(w3, private_key, swap_count, percent, i, language)  # Teruskan persentase
+            successful_swaps += await random_swap(w3, private_key, swap_count, percent, i, language)
         else:
             print_border(LANG[language]['start_manual'], Fore.CYAN)
-            # Teruskan pasangan yang dipilih dan persentase ke fungsi
             successful_swaps += await manual_swap(w3, private_key, i, language, pair_choice, percent)
         
-        # Jeda antar dompet untuk menghindari rate limit jika ada banyak dompet
+        # Delay between wallets to prevent rate limits if there are many wallets
         if i < len(private_keys):
-            inter_wallet_delay = random.uniform(20, 60) # Sesuaikan rentang ini sesuai kebutuhan
+            inter_wallet_delay = 10 # Fixed 10 seconds as requested
             print(f"{Fore.YELLOW}    ℹ Menjeda {inter_wallet_delay:.2f} detik sebelum memproses dompet berikutnya...{Style.RESET_ALL}")
             await asyncio.sleep(inter_wallet_delay)
         print() # Newline for separation
@@ -773,4 +831,4 @@ async def run_swaptoken(language: str = 'id'):
 
 
 if __name__ == "__main__":
-    asyncio.run(run_swaptoken('id')) # Bahasa default adalah Bahasa Indonesia
+    asyncio.run(run_swaptoken('id'))
