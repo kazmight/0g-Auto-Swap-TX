@@ -58,3 +58,9 @@ run the command:
 python Autoswap.py
 or 
 python3 Autoswap.py
+```
+
+## Kata Sandi untuk Memulai Skrip
+Untuk alasan keamanan, skrip ini sekarang dilengkapi dengan fitur kata sandi. Sebelum Anda dapat menggunakan skrip ini, Anda akan diminta untuk memasukkan kata sandi.
+
+Join Telegram Channel Untuk Password : https://t.me/dasarpemulung
