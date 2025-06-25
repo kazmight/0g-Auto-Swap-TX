@@ -7,7 +7,7 @@ This repository contains a collection of Python scripts designed to automate var
 ### General Features
 
 - **Multi-Account Support**: Reads private keys from `pvkey.txt` to perform actions across multiple accounts.
-- **Colorful CLI**: Uses `colorama` for visually appealing output with colored text and borders.
+- **Colorful CLI**: Uses `colorama` for visually appealing output with colored text and borders. 
 - **Asynchronous Execution**: Built with `asyncio` for efficient blockchain interactions.
 - **Error Handling**: Comprehensive error catching for blockchain transactions and RPC issues.
 - **Bilingual Support**: Supports both Vietnamese and English output based on user selection.
